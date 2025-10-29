@@ -56,6 +56,31 @@ Any env var prefixed with `STAGE_` becomes a transformation:
 - Only transforms text files (HTML, JS, CSS, JSON, etc.)
 - **Special case**: `FM_KEY` (without `STAGE_` prefix) automatically replaces `__FM_KEY__` placeholders
 
+### Prometheus Mock Server
+
+Stage includes a built-in mock Prometheus server for testing continuous verification workflows. 
+
+**Configuration:**
+- `PROMETHEUS_ENABLED` - Enable mock server (default: `true`)
+- `STAGE_PROMETHEUS_SCENARIO` - Initial scenario: `healthy`, `high-errors`, `latency-spike`, `gradual-degradation` (default: `healthy`)
+
+**Endpoints:**
+- `/api/v1/query` - Prometheus Query API (GET/POST)
+- `/metrics` - Prometheus text exposition format
+- `/prometheus/admin` - Web control panel for switching scenarios
+- `/prometheus/api/scenario` - REST API for scenario control
+
+**Scenarios:**
+- **healthy** - Minimal errors (~0.1%), low latency (~100ms)
+- **high-errors** - Progressive error increase: 5% → 25% over 5 minutes
+- **latency-spike** - Latency degradation: 150ms → 2000ms over 3 minutes
+- **gradual-degradation** - Both errors and latency worsen over 10 minutes
+
+**Supported Queries:**
+- `rate(http_requests_errors_total[5m])` - Error rate
+- `histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))` - P99 latency
+- `up` - Service uptime
+
 ## Examples
 
 ### Docker Compose

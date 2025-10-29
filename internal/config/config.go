@@ -19,6 +19,10 @@ type Config struct {
 	// Used by stage itself for future FM visualization features
 	FMKey     string
 
+	// Prometheus mock server configuration
+	PrometheusEnabled  bool
+	PrometheusScenario string
+
 	// Transformation rules: map of placeholder -> replacement value
 	// e.g., "FF_SDK_KEY" -> "abc123" means replace "__FF_SDK_KEY__" with "abc123"
 	Replacements map[string]string
@@ -27,11 +31,13 @@ type Config struct {
 // Load reads configuration from environment variables
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:         getEnvOrDefault("PORT", "8080"),
-		AssetDir:     getEnvOrDefault("ASSET_DIR", "/app/assets"),
-		Host:         getEnvOrDefault("HOST", "0.0.0.0"),
-		FMKey:        os.Getenv("FM_KEY"), // Optional - used for FM visualization features
-		Replacements: make(map[string]string),
+		Port:               getEnvOrDefault("PORT", "8080"),
+		AssetDir:           getEnvOrDefault("ASSET_DIR", "/app/assets"),
+		Host:               getEnvOrDefault("HOST", "0.0.0.0"),
+		FMKey:              os.Getenv("FM_KEY"), // Optional - used for FM visualization features
+		PrometheusEnabled:  getBoolEnvOrDefault("PROMETHEUS_ENABLED", true),
+		PrometheusScenario: getEnvOrDefault("STAGE_PROMETHEUS_SCENARIO", "healthy"),
+		Replacements:       make(map[string]string),
 	}
 
 	// Parse all STAGE_* environment variables for transformations
@@ -104,4 +110,22 @@ func getEnvOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getBoolEnvOrDefault retrieves a boolean environment variable or returns a default value
+func getBoolEnvOrDefault(key string, defaultValue bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	// Parse boolean (true/false, 1/0, yes/no, on/off)
+	switch strings.ToLower(value) {
+	case "true", "1", "yes", "on":
+		return true
+	case "false", "0", "no", "off":
+		return false
+	default:
+		return defaultValue
+	}
 }

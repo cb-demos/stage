@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,13 @@ import (
 	"github.com/cb-demos/stage/internal/config"
 	"github.com/cb-demos/stage/internal/transformer"
 )
+
+// testLogger creates a no-op logger for tests
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelError, // Only log errors in tests
+	}))
+}
 
 func TestHealthEndpoint(t *testing.T) {
 	tempDir := t.TempDir()
@@ -26,7 +34,7 @@ func TestHealthEndpoint(t *testing.T) {
 	cache := transformer.NewCache()
 	cache.Set("test.html", []byte("content"))
 
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
@@ -80,7 +88,7 @@ func TestServeCachedAsset(t *testing.T) {
 	transformedContent := []byte("<html><body>Transformed Content</body></html>")
 	cache.Set("index.html", transformedContent)
 
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/index.html", nil)
 	w := httptest.NewRecorder()
@@ -119,7 +127,7 @@ func TestServeOriginalAsset(t *testing.T) {
 	}
 
 	cache := transformer.NewCache()
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/logo.png", nil)
 	w := httptest.NewRecorder()
@@ -149,7 +157,7 @@ func TestSPARouting(t *testing.T) {
 	indexContent := []byte("<html><body>SPA Index</body></html>")
 	cache.Set("index.html", indexContent)
 
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	// Test various SPA routes that should return index.html
 	spaRoutes := []string{
@@ -195,7 +203,7 @@ func TestSPARoutingWithOriginalIndex(t *testing.T) {
 	}
 
 	cache := transformer.NewCache()
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
 	w := httptest.NewRecorder()
@@ -222,7 +230,7 @@ func TestAPIRoutesNotSPARouted(t *testing.T) {
 	}
 
 	cache := transformer.NewCache()
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	// API routes should return 404, not index.html
 	req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
@@ -246,7 +254,7 @@ func TestFileWithExtensionNotFoundReturns404(t *testing.T) {
 	}
 
 	cache := transformer.NewCache()
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	// Files with extensions that don't exist should return 404
 	req := httptest.NewRequest(http.MethodGet, "/nonexistent.js", nil)
@@ -270,7 +278,7 @@ func Test404Response(t *testing.T) {
 	}
 
 	cache := transformer.NewCache()
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/nonexistent", nil)
 	w := httptest.NewRecorder()
@@ -355,7 +363,7 @@ func TestServeNestedAssets(t *testing.T) {
 	}
 
 	cache := transformer.NewCache()
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/assets/js/app.js", nil)
 	w := httptest.NewRecorder()
@@ -393,7 +401,7 @@ func TestCachePriority(t *testing.T) {
 	transformedContent := []byte("<html>transformed</html>")
 	cache.Set("test.html", transformedContent)
 
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/test.html", nil)
 	w := httptest.NewRecorder()
@@ -431,7 +439,7 @@ func TestPathTraversalPrevention(t *testing.T) {
 	}
 
 	cache := transformer.NewCache()
-	srv := New(cfg, cache)
+	srv := New(cfg, cache, testLogger())
 
 	// Test various path traversal attempts
 	traversalAttempts := []struct {

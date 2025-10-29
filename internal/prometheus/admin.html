@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prometheus Mock - Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .status-box {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+        .status-label {
+            font-weight: 600;
+            color: #555;
+        }
+        .status-value {
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+        .scenario-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .metric-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .scenarios-section {
+            margin-top: 30px;
+        }
+        .section-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        .scenarios-grid {
+            display: grid;
+            gap: 12px;
+        }
+        .scenario-card {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .scenario-card:hover {
+            border-color: #667eea;
+            background: #f8f9fa;
+        }
+        .scenario-card.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .scenario-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .scenario-description {
+            font-size: 14px;
+            color: #666;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        .btn-secondary {
+            background: #e9ecef;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prometheus Mock Server</h1>
+        <p class="subtitle">Control Panel for Demo Scenarios</p>
+
+        <div class="status-box">
+            <div class="status-row">
+                <span class="status-label">Current Scenario:</span>
+                <span class="scenario-badge" id="currentScenario">Loading...</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Time Elapsed:</span>
+                <span class="status-value" id="timeElapsed">--</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Description:</span>
+                <span class="status-value" id="description">--</span>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Error Rate</div>
+                    <div class="metric-value" id="errorRate">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">P99 Latency</div>
+                    <div class="metric-value" id="latency">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Up</div>
+                    <div class="metric-value" id="up">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="scenarios-section">
+            <div class="section-title">Select Scenario</div>
+            <div class="scenarios-grid" id="scenariosGrid">
+                <!-- Scenarios will be loaded here -->
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" onclick="refreshStatus()">Refresh Status</button>
+            <button class="btn-secondary" onclick="resetTimer()">Reset Timer</button>
+        </div>
+    </div>
+
+    <script>
+        let currentScenarioType = '';
+
+        async function fetchStatus() {
+            const response = await fetch('/prometheus/api/scenario');
+            const result = await response.json();
+            return result.data;
+        }
+
+        async function fetchScenarios() {
+            const response = await fetch('/prometheus/api/scenarios');
+            const result = await response.json();
+            return result.data;
+        }
+
+        async function setScenario(scenarioType) {
+            const response = await fetch('/prometheus/api/scenario', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ scenario: scenarioType }),
+            });
+            const result = await response.json();
+            return result.data;
+        }
+
+        async function resetTimer() {
+            const response = await fetch('/prometheus/api/scenario/reset', {
+                method: 'POST',
+            });
+            await response.json();
+            await refreshStatus();
+        }
+
+        function updateUI(status) {
+            currentScenarioType = status.type;
+
+            document.getElementById('currentScenario').textContent = status.type;
+            document.getElementById('timeElapsed').textContent = status.elapsed;
+            document.getElementById('description').textContent = status.description;
+            document.getElementById('errorRate').textContent = status.metrics.ErrorRate.toFixed(2) + '%';
+            document.getElementById('latency').textContent = status.metrics.Latency.toFixed(0) + 'ms';
+            document.getElementById('up').textContent = status.metrics.Up.toFixed(0);
+
+            // Update active scenario card
+            document.querySelectorAll('.scenario-card').forEach(card => {
+                if (card.dataset.scenario === status.type) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+        }
+
+        async function refreshStatus() {
+            try {
+                const status = await fetchStatus();
+                updateUI(status);
+            } catch (error) {
+                console.error('Failed to fetch status:', error);
+            }
+        }
+
+        async function loadScenarios() {
+            try {
+                const scenarios = await fetchScenarios();
+                const grid = document.getElementById('scenariosGrid');
+                grid.innerHTML = '';
+
+                scenarios.forEach(scenario => {
+                    const card = document.createElement('div');
+                    card.className = 'scenario-card';
+                    card.dataset.scenario = scenario.type;
+                    card.innerHTML = `
+                        <div class="scenario-name">${scenario.type}</div>
+                        <div class="scenario-description">${scenario.description}</div>
+                    `;
+                    card.onclick = async () => {
+                        card.classList.add('loading');
+                        try {
+                            const status = await setScenario(scenario.type);
+                            updateUI(status);
+                        } catch (error) {
+                            console.error('Failed to set scenario:', error);
+                        } finally {
+                            card.classList.remove('loading');
+                        }
+                    };
+                    grid.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Failed to load scenarios:', error);
+            }
+        }
+
+        async function init() {
+            await loadScenarios();
+            await refreshStatus();
+            // Auto-refresh every 2 seconds
+            setInterval(refreshStatus, 2000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

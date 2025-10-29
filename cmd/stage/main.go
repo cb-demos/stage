@@ -33,7 +33,9 @@ func main() {
 		"port", cfg.Port,
 		"assetDir", cfg.AssetDir,
 		"fmKeyConfigured", cfg.FMKey != "",
-		"replacementCount", len(cfg.Replacements))
+		"replacementCount", len(cfg.Replacements),
+		"prometheusEnabled", cfg.PrometheusEnabled,
+		"prometheusScenario", cfg.PrometheusScenario)
 
 	// Create transformer and run transformations
 	trans := transformer.New(cfg.AssetDir, cfg.Replacements)
@@ -43,7 +45,7 @@ func main() {
 	}
 
 	// Create and start server
-	srv := server.New(cfg, trans.GetCache())
+	srv := server.New(cfg, trans.GetCache(), logger)
 
 	// Setup graceful shutdown
 	go func() {

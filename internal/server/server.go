@@ -10,20 +10,23 @@ import (
 	"strings"
 
 	"github.com/cb-demos/stage/internal/config"
+	"github.com/cb-demos/stage/internal/prometheus"
 	"github.com/cb-demos/stage/internal/transformer"
 	"github.com/gin-gonic/gin"
 )
 
 // Server represents the HTTP server
 type Server struct {
-	router      *gin.Engine
-	config      *config.Config
-	cache       *transformer.Cache
-	httpServer  *http.Server
+	router           *gin.Engine
+	config           *config.Config
+	cache            *transformer.Cache
+	httpServer       *http.Server
+	prometheusMock   *prometheus.MockServer
+	prometheusHandler *prometheus.Handler
 }
 
 // New creates a new Server instance
-func New(cfg *config.Config, cache *transformer.Cache) *Server {
+func New(cfg *config.Config, cache *transformer.Cache, logger *slog.Logger) *Server {
 	// Set Gin mode based on environment
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.ReleaseMode)
@@ -39,6 +42,15 @@ func New(cfg *config.Config, cache *transformer.Cache) *Server {
 		cache:  cache,
 	}
 
+	// Initialize Prometheus mock server if enabled
+	if cfg.PrometheusEnabled {
+		scenarioType := prometheus.ScenarioType(cfg.PrometheusScenario)
+		s.prometheusMock = prometheus.NewMockServer(scenarioType, logger)
+		s.prometheusHandler = prometheus.NewHandler(s.prometheusMock)
+		logger.Info("prometheus mock server enabled",
+			"initial_scenario", cfg.PrometheusScenario)
+	}
+
 	s.setupRoutes()
 	return s
 }
@@ -47,6 +59,23 @@ func New(cfg *config.Config, cache *transformer.Cache) *Server {
 func (s *Server) setupRoutes() {
 	// Health check endpoint
 	s.router.GET("/health", s.handleHealth)
+
+	// Prometheus mock server routes (if enabled)
+	if s.prometheusHandler != nil {
+		// Prometheus API endpoints
+		s.router.GET("/api/v1/query", s.prometheusHandler.HandleQuery)
+		s.router.POST("/api/v1/query", s.prometheusHandler.HandleQuery)
+		s.router.GET("/metrics", s.prometheusHandler.HandleMetrics)
+
+		// Control panel API
+		s.router.GET("/prometheus/api/scenario", s.prometheusHandler.HandleGetScenario)
+		s.router.POST("/prometheus/api/scenario", s.prometheusHandler.HandleSetScenario)
+		s.router.POST("/prometheus/api/scenario/reset", s.prometheusHandler.HandleResetTimer)
+		s.router.GET("/prometheus/api/scenarios", s.prometheusHandler.HandleListScenarios)
+
+		// Admin UI
+		s.router.GET("/prometheus/admin", s.prometheusHandler.HandleAdmin)
+	}
 
 	// Serve all other requests through the asset handler
 	s.router.NoRoute(s.handleAssets)
@@ -169,6 +198,12 @@ func (s *Server) Start() error {
 
 // Shutdown gracefully shuts down the server
 func (s *Server) Shutdown(ctx context.Context) error {
+	// Stop Prometheus mock server if running
+	if s.prometheusMock != nil {
+		s.prometheusMock.Stop()
+	}
+
+	// Shutdown HTTP server
 	if s.httpServer != nil {
 		return s.httpServer.Shutdown(ctx)
 	}
@@ -221,6 +256,7 @@ func shouldFallbackToSPA(path string) bool {
 		"/.well-known/",
 		"/metrics",
 		"/health",
+		"/prometheus/",
 	}
 	for _, sp := range specialPaths {
 		if strings.HasPrefix(path, sp) {
