@@ -32,6 +32,7 @@ func main() {
 	slog.Info("Configuration loaded",
 		"port", cfg.Port,
 		"assetDir", cfg.AssetDir,
+		"fmKeyConfigured", cfg.FMKey != "",
 		"replacementCount", len(cfg.Replacements))
 
 	// Create transformer and run transformations

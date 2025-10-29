@@ -15,6 +15,10 @@ type Config struct {
 	AssetDir  string
 	Host      string
 
+	// Feature Management configuration (optional)
+	// Used by stage itself for future FM visualization features
+	FMKey     string
+
 	// Transformation rules: map of placeholder -> replacement value
 	// e.g., "FF_SDK_KEY" -> "abc123" means replace "__FF_SDK_KEY__" with "abc123"
 	Replacements map[string]string
@@ -26,6 +30,7 @@ func Load() (*Config, error) {
 		Port:         getEnvOrDefault("PORT", "8080"),
 		AssetDir:     getEnvOrDefault("ASSET_DIR", "/app/assets"),
 		Host:         getEnvOrDefault("HOST", "0.0.0.0"),
+		FMKey:        os.Getenv("FM_KEY"), // Optional - used for FM visualization features
 		Replacements: make(map[string]string),
 	}
 
@@ -53,6 +58,12 @@ func Load() (*Config, error) {
 
 			cfg.Replacements[placeholder] = value
 		}
+	}
+
+	// Special case: if FM_KEY is set, also add it to replacements
+	// This allows users to set FM_KEY once for both stage's use and for transformations
+	if cfg.FMKey != "" {
+		cfg.Replacements["FM_KEY"] = cfg.FMKey
 	}
 
 	// Validate configuration

@@ -45,6 +45,7 @@ Stage transforms files at startup and caches them. Placeholders like `__FF_SDK_K
 - `HOST` - Server host (default: `0.0.0.0`)
 - `ASSET_DIR` - Directory with static assets (default: `/app/assets`)
 - `LOG_LEVEL` - `DEBUG`, `INFO`, `WARN`, `ERROR` (default: `INFO`)
+- `FM_KEY` - Feature Management SDK key (optional, used for future FM visualization features and automatically replaces `__FM_KEY__` placeholders)
 
 ### Transformations
 
@@ -53,6 +54,7 @@ Any env var prefixed with `STAGE_` becomes a transformation:
 - `STAGE_<NAME>=value` → replaces `__<NAME>__` in your files
 - Case sensitive
 - Only transforms text files (HTML, JS, CSS, JSON, etc.)
+- **Special case**: `FM_KEY` (without `STAGE_` prefix) automatically replaces `__FM_KEY__` placeholders
 
 ## Examples
 
